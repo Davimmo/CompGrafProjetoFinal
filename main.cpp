@@ -175,10 +175,10 @@ void init() {
     
     fan.x = screenWidth / 2.0f;
     fan.y = screenHeight / 2.0f;
-    fan.blade_length = 80.0f;
-    fan.blade_width = 15.0f; // Define a largura da pá para o desenho e colisão
+    fan.blade_length = 400.0f;
+    fan.blade_width = 50.0f; // Define a largura da pá para o desenho e colisão
     fan.rotation_angle = 0.0f;
-    fan.rotation_speed = 4.0f;
+    fan.rotation_speed = 1.0f;
 
     obstacles.clear();
     
