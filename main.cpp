@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 #include <stdio.h>
-#include <cmath> 
+#include <cmath>
 
 // ----------------------------------------------------------------------
 // ESTRUTURAS E VARIÁVEIS GLOBAIS
@@ -18,16 +18,14 @@ struct GameObject {
     float min_pos, max_pos;
 };
 
-// --- NOVO: Estrutura simples para representar um ponto 2D ---
 struct Point {
     float x, y;
 };
 
-// --- ALTERADO: Estrutura do ventilador com mais detalhes ---
 struct Fan {
     float x, y;
-    float blade_length;        // Comprimento da pá
-    float blade_width;         // Metade da largura da base da pá
+    float blade_length;
+    float blade_width;
     float rotation_angle;
     float rotation_speed;
     float r, g, b;
@@ -52,11 +50,14 @@ const float PLAYER_SPEED = 7.0f;
 int screenWidth;
 int screenHeight;
 
+// --- NOVO: Variáveis para a cor do texto ---
+float textColorR, textColorG, textColorB;
+
 // ----------------------------------------------------------------------
 // DECLARAÇÕES DE FUNÇÕES
 // ----------------------------------------------------------------------
 void specialKeysUp(int key, int x, int y);
-bool checkFanCollision(); // --- NOVO: Declaração da nova função de colisão
+bool checkFanCollision();
 
 // ... Funções auxiliares ...
 void drawText(float x, float y, const char *text) {
@@ -67,25 +68,31 @@ void drawText(float x, float y, const char *text) {
     }
 }
 
+// --- ALTERADO: A função agora também define a cor do texto ---
 void applyColors() {
-    // --- LIMPEZA: Loop volta ao normal pois a hitbox foi removida ---
     if (colorScheme == 0) {
+        // Esquema Claro (Fundo Cinza Claro)
         glClearColor(0.9f, 0.9f, 0.9f, 1.0f);
+        textColorR = 0.05f; textColorG = 0.05f; textColorB = 0.05f; // Texto escuro
         player.r = 0.8f; player.g = 0.2f; player.b = 0.2f;
         for (size_t i = 0; i < obstacles.size(); ++i) { obstacles[i].r = 0.2f; obstacles[i].g = 0.2f; obstacles[i].b = 0.8f; }
         fan.r = 0.3f; fan.g = 0.3f; fan.b = 0.3f;
     }
     else if (colorScheme == 1) {
+        // Esquema Escuro (Fundo Cinza Escuro)
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        textColorR = 0.9f; textColorG = 0.9f; textColorB = 0.9f; // Texto claro
         player.r = 0.1f; player.g = 0.9f; player.b = 0.1f;
         for (size_t i = 0; i < obstacles.size(); ++i) { obstacles[i].r = 0.9f; obstacles[i].g = 0.1f; obstacles[i].b = 0.5f; }
         fan.r = 0.8f; fan.g = 0.8f; fan.b = 0.8f;
     }
     else {
+        // Esquema Sépia (Fundo Creme)
         glClearColor(0.9f, 0.85f, 0.7f, 1.0f);
-        player.r = 0.2f; player.g = 0.6f; player.b = 0.3f;
+        textColorR = 0.2f; textColorG = 0.15f; textColorB = 0.1f; // Texto marrom escuro
+        player.r = 0.2f; player.g = 0.2f; player.b = 0.7f;
         for (size_t i = 0; i < obstacles.size(); ++i) { obstacles[i].r = 0.5f; obstacles[i].g = 0.35f; obstacles[i].b = 0.05f; }
-        fan.r = 0.2f; fan.g = 0.2f; fan.b = 0.2f;
+        fan.r = 0.2f; fan.g = 0.0f; fan.b = 0.2f;
     }
 }
 
@@ -103,7 +110,7 @@ void resetGame() {
 // LÓGICA DO JOGO
 // ----------------------------------------------------------------------
 
-bool checkCollision() { // Esta função agora só verifica os obstáculos normais
+bool checkCollision() {
     for (size_t i = 0; i < obstacles.size(); ++i) {
         if (player.x < obstacles[i].x + obstacles[i].width &&
             player.x + player.width > obstacles[i].x &&
@@ -116,7 +123,6 @@ bool checkCollision() { // Esta função agora só verifica os obstáculos norma
     return false;
 }
 
-// --- NOVO: Funções auxiliares para a colisão geométrica ---
 float sign(Point p1, Point p2, Point p3) {
     return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
 }
@@ -132,7 +138,6 @@ bool isPointInTriangle(Point pt, Point v1, Point v2, Point v3) {
     return !(has_neg && has_pos);
 }
 
-// --- NOVO: Função principal de colisão com o ventilador ---
 bool checkFanCollision() {
     Point playerCorners[4] = {
         {player.x, player.y},
@@ -176,21 +181,21 @@ void init() {
     fan.x = screenWidth / 2.0f;
     fan.y = screenHeight / 2.0f;
     fan.blade_length = 400.0f;
-    fan.blade_width = 50.0f; // Define a largura da pá para o desenho e colisão
+    fan.blade_width = 50.0f;
     fan.rotation_angle = 0.0f;
-    fan.rotation_speed = 1.0f;
+    fan.rotation_speed = 1.5f;
 
     obstacles.clear();
     
-    // --- REMOVIDO: A hitbox quadrada do ventilador não é mais adicionada aqui ---
-
-    // Adiciona os outros obstáculos normalmente
     obstacles.push_back({(float)screenWidth * 0.2f, (float)screenHeight * 0.5f, 40, (float)screenHeight * 0.5f});
     obstacles.push_back({(float)screenWidth * 0.3f, 0, 40, (float)screenHeight * 0.4f});
     obstacles.push_back({(float)screenWidth * 0.75f, 0, 40, (float)screenHeight * 0.7f});
     obstacles.push_back({(float)screenWidth * 0.85f, (float)screenHeight * 0.3f, 40, (float)screenHeight * 0.7f});
+    
     obstacles.push_back({(float)screenWidth * 0.45f, 0.0f, 40, 200.0f, 1,1,1, 0, 2.0f, 0.0f, screenHeight - 200.0f});
-    obstacles.push_back({screenWidth * 0.55f, (float)screenHeight * 0.4f, 150, 40, 1,1,1, 2.5f, 0, screenWidth * 0.55f, screenWidth * 0.7f});
+    obstacles.push_back({screenWidth * 0.55f, (float)screenHeight * 0.7f, 150, 40, 1,1,1, 10.0f, 0, screenWidth * 0.55f, screenWidth * 0.75f});
+    obstacles.push_back({screenWidth * 0.55f, (float)screenHeight * 0.5f, 150, 40, 1,1,1, 10.0f, 0, screenWidth * 0.55f, screenWidth * 0.75f});
+    obstacles.push_back({screenWidth * 0.55f, (float)screenHeight * 0.3f, 150, 40, 1,1,1, 10.0f, 0, screenWidth * 0.55f, screenWidth * 0.75f});
     obstacles.push_back({(float)screenWidth * 0.65f, screenHeight - 40.0f, 150, 40, 1,1,1, 0, -3.5f, screenHeight * 0.3f, screenHeight - 40.0f});
 
     applyColors();
@@ -206,13 +211,11 @@ void display() {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    // --- LIMPEZA: Loop volta ao normal ---
     for (size_t i = 0; i < obstacles.size(); ++i) {
         glColor3f(obstacles[i].r, obstacles[i].g, obstacles[i].b);
         glRectf(obstacles[i].x, obstacles[i].y, obstacles[i].x + obstacles[i].width, obstacles[i].y + obstacles[i].height);
     }
 
-    // --- Lógica para desenhar o ventilador (usando blade_width agora) ---
     glPushMatrix();
     glTranslatef(fan.x, fan.y, 0.0f);
     glRotatef(fan.rotation_angle, 0.0f, 0.0f, 1.0f);
@@ -232,11 +235,12 @@ void display() {
         glRectf(player.x, player.y, player.x + player.width, player.y + player.height);
     }
 
-    glColor3f(0.05f, 0.05f, 0.05f);
+    // --- ALTERADO: Usa as variáveis de cor de texto dinâmicas ---
+    glColor3f(textColorR, textColorG, textColorB);
     char lifeText[20];
     sprintf(lifeText, "Vidas: %d", lives);
     drawText(20, screenHeight - 40, lifeText);
-    drawText(screenWidth - 200, screenHeight - 40, "META ->");
+    drawText(screenWidth - 120, screenHeight - 60, "META ->");
 
     if (gameOver) {
         drawText(screenWidth/2 - 50, screenHeight/2, "DERROTA!");
@@ -281,7 +285,6 @@ void update(int value) {
             gameWon = true;
         }
 
-        // --- LIMPEZA: Loop de movimento de obstáculos volta ao normal ---
         for (size_t i = 0; i < obstacles.size(); ++i) {
             if (obstacles[i].speed_y != 0) {
                 obstacles[i].y += obstacles[i].speed_y;
@@ -297,7 +300,6 @@ void update(int value) {
             }
         }
 
-        // --- ALTERADO: A verificação de colisão agora inclui a nova função ---
         if (checkCollision() || checkFanCollision()) {
             lives--;
             player.x = 50;
@@ -312,7 +314,6 @@ void update(int value) {
     glutTimerFunc(16, update, 0);
 }
 
-// ... (O restante do código: reshape, specialKeys, specialKeysUp, keyboard, mouse e main permanecem os mesmos) ...
 void reshape(int w, int h) {
     screenWidth = w;
     screenHeight = h;
@@ -321,7 +322,6 @@ void reshape(int w, int h) {
     glLoadIdentity();
     gluOrtho2D(0, w, 0, h);
 }
-
 
 void specialKeys(int key, int x, int y) {
     if (gameOver || gameWon) return;
