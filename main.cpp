@@ -1,36 +1,38 @@
+#define _USE_MATH_DEFINES // Necessário para M_PI no Windows com alguns compiladores
 #include <GL/glut.h>
 #include <iostream>
 #include <vector>
 #include <string>
 #include <stdio.h>
-#include <cmath> // Necessário para a função fmod e sqrt
+#include <cmath> 
 
 // ----------------------------------------------------------------------
 // ESTRUTURAS E VARIÁVEIS GLOBAIS
 // ----------------------------------------------------------------------
 
-// Estrutura aprimorada para representar um objeto, incluindo dados de movimento
 struct GameObject {
-    float x, y;          // Posição do canto inferior esquerdo
-    float width, height; // Dimensões
-    float r, g, b;       // Cor
-
-    // Propriedades de movimento
-    float speed_x, speed_y; // Velocidade nos eixos
-    float min_pos, max_pos; // Limites de movimento (em X ou Y)
+    float x, y;
+    float width, height;
+    float r, g, b;
+    float speed_x, speed_y;
+    float min_pos, max_pos;
 };
 
-// --- NOVO: Estrutura para representar o ventilador ---
+// --- NOVO: Estrutura simples para representar um ponto 2D ---
+struct Point {
+    float x, y;
+};
+
+// --- ALTERADO: Estrutura do ventilador com mais detalhes ---
 struct Fan {
-    float x, y;                // Posição do centro (eixo)
-    float blade_length;        // Comprimento das pás
-    float rotation_angle;      // Ângulo de rotação atual em graus
-    float rotation_speed;      // Velocidade da rotação (graus por quadro)
-    float r, g, b;             // Cor das pás
+    float x, y;
+    float blade_length;        // Comprimento da pá
+    float blade_width;         // Metade da largura da base da pá
+    float rotation_angle;
+    float rotation_speed;
+    float r, g, b;
 };
 
-
-//Estrutura para rastrear o estado das teclas ---
 struct KeyState {
     bool up = false;
     bool down = false;
@@ -38,17 +40,15 @@ struct KeyState {
     bool right = false;
 } keyStates;
 
-// Variáveis de estado do jogo
 GameObject player;
 std::vector<GameObject> obstacles;
-Fan fan; // --- NOVO: Variável global para o nosso ventilador
+Fan fan;
 int lives = 3;
 bool gameOver = false;
 bool gameWon = false;
 int colorScheme = 0;
-const float PLAYER_SPEED = 7.0f; //Velocidade constante para o jogador
+const float PLAYER_SPEED = 7.0f;
 
-// Dimensões da tela (serão definidas dinamicamente)
 int screenWidth;
 int screenHeight;
 
@@ -56,11 +56,9 @@ int screenHeight;
 // DECLARAÇÕES DE FUNÇÕES
 // ----------------------------------------------------------------------
 void specialKeysUp(int key, int x, int y);
+bool checkFanCollision(); // --- NOVO: Declaração da nova função de colisão
 
-// ----------------------------------------------------------------------
-// FUNÇÕES AUXILIARES
-// ----------------------------------------------------------------------
-
+// ... Funções auxiliares ...
 void drawText(float x, float y, const char *text) {
     glRasterPos2f(x, y);
     while (*text) {
@@ -70,22 +68,23 @@ void drawText(float x, float y, const char *text) {
 }
 
 void applyColors() {
+    // --- LIMPEZA: Loop volta ao normal pois a hitbox foi removida ---
     if (colorScheme == 0) {
         glClearColor(0.9f, 0.9f, 0.9f, 1.0f);
         player.r = 0.8f; player.g = 0.2f; player.b = 0.2f;
-        for (size_t i = 1; i < obstacles.size(); ++i) { obstacles[i].r = 0.2f; obstacles[i].g = 0.2f; obstacles[i].b = 0.8f; }
+        for (size_t i = 0; i < obstacles.size(); ++i) { obstacles[i].r = 0.2f; obstacles[i].g = 0.2f; obstacles[i].b = 0.8f; }
         fan.r = 0.3f; fan.g = 0.3f; fan.b = 0.3f;
     }
     else if (colorScheme == 1) {
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         player.r = 0.1f; player.g = 0.9f; player.b = 0.1f;
-        for (size_t i = 1; i < obstacles.size(); ++i) { obstacles[i].r = 0.9f; obstacles[i].g = 0.1f; obstacles[i].b = 0.5f; }
+        for (size_t i = 0; i < obstacles.size(); ++i) { obstacles[i].r = 0.9f; obstacles[i].g = 0.1f; obstacles[i].b = 0.5f; }
         fan.r = 0.8f; fan.g = 0.8f; fan.b = 0.8f;
     }
     else {
         glClearColor(0.9f, 0.85f, 0.7f, 1.0f);
         player.r = 0.2f; player.g = 0.6f; player.b = 0.3f;
-        for (size_t i = 1; i < obstacles.size(); ++i) { obstacles[i].r = 0.5f; obstacles[i].g = 0.35f; obstacles[i].b = 0.05f; }
+        for (size_t i = 0; i < obstacles.size(); ++i) { obstacles[i].r = 0.5f; obstacles[i].g = 0.35f; obstacles[i].b = 0.05f; }
         fan.r = 0.2f; fan.g = 0.2f; fan.b = 0.2f;
     }
 }
@@ -104,7 +103,7 @@ void resetGame() {
 // LÓGICA DO JOGO
 // ----------------------------------------------------------------------
 
-bool checkCollision() {
+bool checkCollision() { // Esta função agora só verifica os obstáculos normais
     for (size_t i = 0; i < obstacles.size(); ++i) {
         if (player.x < obstacles[i].x + obstacles[i].width &&
             player.x + player.width > obstacles[i].x &&
@@ -117,58 +116,82 @@ bool checkCollision() {
     return false;
 }
 
+// --- NOVO: Funções auxiliares para a colisão geométrica ---
+float sign(Point p1, Point p2, Point p3) {
+    return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
+}
+
+bool isPointInTriangle(Point pt, Point v1, Point v2, Point v3) {
+    float d1, d2, d3;
+    bool has_neg, has_pos;
+    d1 = sign(pt, v1, v2);
+    d2 = sign(pt, v2, v3);
+    d3 = sign(pt, v3, v1);
+    has_neg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+    has_pos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+    return !(has_neg && has_pos);
+}
+
+// --- NOVO: Função principal de colisão com o ventilador ---
+bool checkFanCollision() {
+    Point playerCorners[4] = {
+        {player.x, player.y},
+        {player.x + player.width, player.y},
+        {player.x + player.width, player.y + player.height},
+        {player.x, player.y + player.height}
+    };
+
+    for (int i = 0; i < 3; ++i) {
+        float current_angle_deg = fan.rotation_angle + (i * 120.0f);
+        float current_angle_rad = current_angle_deg * M_PI / 180.0f;
+
+        Point blade_local_verts[3] = {
+            {0, 0},
+            {-fan.blade_width, fan.blade_length},
+            {fan.blade_width, fan.blade_length}
+        };
+
+        Point blade_world_verts[3];
+        for (int j = 0; j < 3; ++j) {
+            float lx = blade_local_verts[j].x;
+            float ly = blade_local_verts[j].y;
+            blade_world_verts[j].x = (lx * cos(current_angle_rad) - ly * sin(current_angle_rad)) + fan.x;
+            blade_world_verts[j].y = (lx * sin(current_angle_rad) + ly * cos(current_angle_rad)) + fan.y;
+        }
+        
+        for (int k = 0; k < 4; ++k) {
+            if (isPointInTriangle(playerCorners[k], blade_world_verts[0], blade_world_verts[1], blade_world_verts[2])) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 void init() {
-    // Define as dimensões da tela dinamicamente
     screenWidth = glutGet(GLUT_SCREEN_WIDTH);
     screenHeight = glutGet(GLUT_SCREEN_HEIGHT);
-
-    // Inicializa o jogador
     player = {50, (float)screenHeight / 2, 25, 25, 1, 0, 0, 0, 0, 0, 0};
     
-    // --- NOVO: Inicializa as propriedades do ventilador ---
     fan.x = screenWidth / 2.0f;
     fan.y = screenHeight / 2.0f;
-    fan.blade_length = 200.0f;
+    fan.blade_length = 80.0f;
+    fan.blade_width = 15.0f; // Define a largura da pá para o desenho e colisão
     fan.rotation_angle = 0.0f;
-    fan.rotation_speed = 1.0f; // Ajuste para deixar mais rápido ou lento
+    fan.rotation_speed = 4.0f;
 
     obstacles.clear();
     
-    // --- NOVO: Adiciona uma caixa de colisão para o ventilador ---
-    // Esta é uma "hitbox" invisível. O jogador colidirá com este quadrado,
-    // que engloba toda a área de rotação do ventilador. Será o obstáculo de índice 0.
-    float hitbox_size = fan.blade_length * 2;
-    obstacles.push_back({
-        fan.x - fan.blade_length, // x
-        fan.y - fan.blade_length, // y
-        hitbox_size,              // width
-        hitbox_size,              // height
-        0,0,0,0,0,0,0 // O resto não importa, pois é estático e a cor não será usada
-    });
+    // --- REMOVIDO: A hitbox quadrada do ventilador não é mais adicionada aqui ---
 
-
-    // Define os obstáculos (estáticos e móveis)
-    // Obstáculos estáticos
+    // Adiciona os outros obstáculos normalmente
     obstacles.push_back({(float)screenWidth * 0.2f, (float)screenHeight * 0.5f, 40, (float)screenHeight * 0.5f});
     obstacles.push_back({(float)screenWidth * 0.3f, 0, 40, (float)screenHeight * 0.4f});
     obstacles.push_back({(float)screenWidth * 0.75f, 0, 40, (float)screenHeight * 0.7f});
     obstacles.push_back({(float)screenWidth * 0.85f, (float)screenHeight * 0.3f, 40, (float)screenHeight * 0.7f});
-
-    // Obstáculos móveis
-    // Obstáculo 1: Movimento Vertical
-    float obs1_y_start = 0;
-    float obs1_y_end = screenHeight - 200;
-    obstacles.push_back({(float)screenWidth * 0.45f, obs1_y_start, 40, 200, 1,1,1, 0, 2.0f, obs1_y_start, obs1_y_end});
-
-    // Obstáculo 2: Movimento Horizontal
-    float obs2_x_start = screenWidth * 0.55f;
-    float obs2_x_end = screenWidth * 0.7f;
-    obstacles.push_back({obs2_x_start, (float)screenHeight * 0.4f, 150, 40, 1,1,1, 2.5f, 0, obs2_x_start, obs2_x_end});
-    
-    // Obstáculo 3: Movimento Vertical Rápido
-    float obs3_y_start = screenHeight * 0.3f;
-    float obs3_y_end = screenHeight - 40;
-    obstacles.push_back({(float)screenWidth * 0.65f, obs3_y_end, 150, 40, 1,1,1, 0, -3.5f, obs3_y_start, obs3_y_end});
+    obstacles.push_back({(float)screenWidth * 0.45f, 0.0f, 40, 200.0f, 1,1,1, 0, 2.0f, 0.0f, screenHeight - 200.0f});
+    obstacles.push_back({screenWidth * 0.55f, (float)screenHeight * 0.4f, 150, 40, 1,1,1, 2.5f, 0, screenWidth * 0.55f, screenWidth * 0.7f});
+    obstacles.push_back({(float)screenWidth * 0.65f, screenHeight - 40.0f, 150, 40, 1,1,1, 0, -3.5f, screenHeight * 0.3f, screenHeight - 40.0f});
 
     applyColors();
 }
@@ -183,39 +206,27 @@ void display() {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    // --- ALTERADO: Começa o loop do 1 para não desenhar a hitbox do ventilador ---
-    for (size_t i = 1; i < obstacles.size(); ++i) {
+    // --- LIMPEZA: Loop volta ao normal ---
+    for (size_t i = 0; i < obstacles.size(); ++i) {
         glColor3f(obstacles[i].r, obstacles[i].g, obstacles[i].b);
         glRectf(obstacles[i].x, obstacles[i].y, obstacles[i].x + obstacles[i].width, obstacles[i].y + obstacles[i].height);
     }
 
-    // --- NOVO: Lógica para desenhar o ventilador ---
-    glPushMatrix(); // Salva o estado atual da matriz de transformação
-
-    // 1. Move o sistema de coordenadas para o centro do ventilador
+    // --- Lógica para desenhar o ventilador (usando blade_width agora) ---
+    glPushMatrix();
     glTranslatef(fan.x, fan.y, 0.0f);
-    // 2. Rotaciona o sistema de coordenadas de acordo com o ângulo atual do ventilador
-    glRotatef(fan.rotation_angle, 0.0f, 0.0f, 1.0f); // Rotação em torno do eixo Z
-
-    // Define a cor das pás
+    glRotatef(fan.rotation_angle, 0.0f, 0.0f, 1.0f);
     glColor3f(fan.r, fan.g, fan.b);
-
-    // 3. Desenha as 3 pás (triângulos)
     for (int i = 0; i < 3; ++i) {
         glBegin(GL_TRIANGLES);
-            // Vértice no centro do ventilador
             glVertex2f(0.0f, 0.0f);
-            // Vértices que formam a pá. Desenhamos como se estivesse na vertical.
-            glVertex2f(-15.0f, fan.blade_length); // Canto esquerdo da ponta da pá
-            glVertex2f(15.0f, fan.blade_length);  // Canto direito da ponta da pá
+            glVertex2f(-fan.blade_width, fan.blade_length);
+            glVertex2f(fan.blade_width, fan.blade_length);
         glEnd();
-        // Rotaciona o sistema em 120 graus para a próxima pá (360 / 3 = 120)
         glRotatef(120.0f, 0.0f, 0.0f, 1.0f);
     }
+    glPopMatrix();
     
-    glPopMatrix(); // Restaura a matriz de transformação original para não afetar outros desenhos
-
-
     if (!gameWon) {
         glColor3f(player.r, player.g, player.b);
         glRectf(player.x, player.y, player.x + player.width, player.y + player.height);
@@ -231,7 +242,6 @@ void display() {
         drawText(screenWidth/2 - 50, screenHeight/2, "DERROTA!");
         drawText(screenWidth/2 - 170, screenHeight/2 - 30, "Pressione 'r' para reiniciar ou 'ESC' para sair.");
     }
-
     if (gameWon) {
         drawText(screenWidth/2 - 50, screenHeight/2, "VITORIA!");
         drawText(screenWidth/2 - 170, screenHeight/2 - 30, "Pressione 'r' para reiniciar ou 'ESC' para sair.");
@@ -240,71 +250,55 @@ void display() {
     glutSwapBuffers();
 }
 
-/**
- * @brief Função chamada periodicamente. Usada para toda a lógica de atualização do jogo.
- */
 void update(int value) {
     if (!gameOver && !gameWon) {
-        
-        // --- NOVO: Atualiza o ângulo de rotação do ventilador ---
         fan.rotation_angle += fan.rotation_speed;
-        // Reseta o ângulo para evitar que o número cresça indefinidamente
         if (fan.rotation_angle >= 360.0f) {
             fan.rotation_angle -= 360.0f;
         }
 
-        // 1. Redefine a velocidade do jogador a cada quadro
         player.speed_x = 0;
         player.speed_y = 0;
-
-        // 2. Define a direção com base nas teclas pressionadas
         if (keyStates.up)    player.speed_y += PLAYER_SPEED;
         if (keyStates.down)  player.speed_y -= PLAYER_SPEED;
         if (keyStates.left)  player.speed_x -= PLAYER_SPEED;
         if (keyStates.right) player.speed_x += PLAYER_SPEED;
 
-        // 3. Normaliza a velocidade para movimento diagonal
         if (player.speed_x != 0 && player.speed_y != 0) {
             float magnitude = sqrt(player.speed_x * player.speed_x + player.speed_y * player.speed_y);
             player.speed_x = (player.speed_x / magnitude) * PLAYER_SPEED;
             player.speed_y = (player.speed_y / magnitude) * PLAYER_SPEED;
         }
 
-        // 4. Atualiza a posição do jogador
         player.x += player.speed_x;
         player.y += player.speed_y;
 
-        // 5. Garante que o jogador não saia da tela
         if (player.y < 0) player.y = 0;
         if (player.y + player.height > screenHeight) player.y = screenHeight - player.height;
         if (player.x < 0) player.x = 0;
         
-        // 6. Verifica se o jogador alcançou a meta
         if (player.x + player.width > screenWidth) {
             gameWon = true;
         }
 
-        // Move cada obstáculo que tem velocidade definida
-        // --- ALTERADO: Começa o loop do 1 para não mover a hitbox do ventilador ---
-        for (size_t i = 1; i < obstacles.size(); ++i) {
-            // Movimento em Y
+        // --- LIMPEZA: Loop de movimento de obstáculos volta ao normal ---
+        for (size_t i = 0; i < obstacles.size(); ++i) {
             if (obstacles[i].speed_y != 0) {
                 obstacles[i].y += obstacles[i].speed_y;
                 if (obstacles[i].y < obstacles[i].min_pos || obstacles[i].y > obstacles[i].max_pos) {
-                    obstacles[i].speed_y *= -1; // Inverte a direção
+                    obstacles[i].speed_y *= -1;
                 }
             }
-            // Movimento em X
             if (obstacles[i].speed_x != 0) {
                 obstacles[i].x += obstacles[i].speed_x;
                 if (obstacles[i].x < obstacles[i].min_pos || obstacles[i].x > obstacles[i].max_pos) {
-                    obstacles[i].speed_x *= -1; // Inverte a direção
+                    obstacles[i].speed_x *= -1;
                 }
             }
         }
 
-        // Checagem de colisão após toda a movimentação
-        if (checkCollision()) {
+        // --- ALTERADO: A verificação de colisão agora inclui a nova função ---
+        if (checkCollision() || checkFanCollision()) {
             lives--;
             player.x = 50;
             player.y = screenHeight / 2;
@@ -315,12 +309,11 @@ void update(int value) {
     }
 
     glutPostRedisplay();
-    glutTimerFunc(16, update, 0); // Re-chama o update a aprox. 60 FPS
+    glutTimerFunc(16, update, 0);
 }
 
 // ... (O restante do código: reshape, specialKeys, specialKeysUp, keyboard, mouse e main permanecem os mesmos) ...
 void reshape(int w, int h) {
-    // Atualiza as dimensões da tela em caso de redimensionamento
     screenWidth = w;
     screenHeight = h;
     glViewport(0, 0, w, h);
@@ -330,10 +323,8 @@ void reshape(int w, int h) {
 }
 
 
-//Controle de teclas para os movimentos do player
 void specialKeys(int key, int x, int y) {
     if (gameOver || gameWon) return;
-
     switch (key) {
         case GLUT_KEY_UP:    keyStates.up = true; break;
         case GLUT_KEY_DOWN:  keyStates.down = true; break;
@@ -342,7 +333,6 @@ void specialKeys(int key, int x, int y) {
     }
 }
 
-// Chamada quando uma tecla especial é solta
 void specialKeysUp(int key, int x, int y) {
     switch (key) {
         case GLUT_KEY_UP:    keyStates.up = false; break;
@@ -352,16 +342,13 @@ void specialKeysUp(int key, int x, int y) {
     }
 }
 
-
 void keyboard(unsigned char key, int x, int y) {
-    // Tecla 'ESC' para sair do jogo
-    if (key == 27) { // 27 é o código ASCII para ESC
+    if (key == 27) {
         exit(0);
     }
-    // Tecla 'r' para reiniciar
     if ((key == 'r' || key == 'R') && (gameOver || gameWon)) {
         resetGame();
-        init(); // Re-inicializa os obstáculos para suas posições originais
+        init();
     }
 }
 
@@ -371,34 +358,23 @@ void mouse(int button, int state, int x, int y) {
     }
 }
 
-// ----------------------------------------------------------------------
-// FUNÇÃO PRINCIPAL
-// ----------------------------------------------------------------------
-
 int main(int argc, char** argv) {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
     glutInitWindowPosition(0, 0);
-    
-    // Pega as dimensões da tela antes de criar a janela
     screenWidth = glutGet(GLUT_SCREEN_WIDTH);
     screenHeight = glutGet(GLUT_SCREEN_HEIGHT);
     glutInitWindowSize(screenWidth, screenHeight);
-
     glutCreateWindow("Desafio de Obstaculos v2 - CG 2025.1");
-    glutFullScreen(); // Força o modo de tela cheia
-
+    glutFullScreen();
     init();
-
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
     glutSpecialFunc(specialKeys);
     glutKeyboardFunc(keyboard);
     glutMouseFunc(mouse);
-    glutTimerFunc(16, update, 0); // Inicia a função de update/animação
-
+    glutTimerFunc(16, update, 0);
     glutSpecialUpFunc(specialKeysUp);
-
     glutMainLoop();
     return 0;
 }
