@@ -183,7 +183,7 @@ void init() {
     fan.blade_length = 400.0f;
     fan.blade_width = 50.0f;
     fan.rotation_angle = 0.0f;
-    fan.rotation_speed = 1.5f;
+    fan.rotation_speed = 1.0f;
 
     obstacles.clear();
     
@@ -193,9 +193,9 @@ void init() {
     obstacles.push_back({(float)screenWidth * 0.85f, (float)screenHeight * 0.3f, 40, (float)screenHeight * 0.7f});
     
     obstacles.push_back({(float)screenWidth * 0.45f, 0.0f, 40, 200.0f, 1,1,1, 0, 2.0f, 0.0f, screenHeight - 200.0f});
-    obstacles.push_back({screenWidth * 0.55f, (float)screenHeight * 0.7f, 150, 40, 1,1,1, 10.0f, 0, screenWidth * 0.55f, screenWidth * 0.75f});
-    obstacles.push_back({screenWidth * 0.55f, (float)screenHeight * 0.5f, 150, 40, 1,1,1, 10.0f, 0, screenWidth * 0.55f, screenWidth * 0.75f});
-    obstacles.push_back({screenWidth * 0.55f, (float)screenHeight * 0.3f, 150, 40, 1,1,1, 10.0f, 0, screenWidth * 0.55f, screenWidth * 0.75f});
+    obstacles.push_back({screenWidth * 0.55f, (float)screenHeight * 0.7f, 150, 40, 1,1,1, 5.0f, 0, screenWidth * 0.55f, screenWidth * 0.75f});
+    obstacles.push_back({screenWidth * 0.55f, (float)screenHeight * 0.5f, 150, 40, 1,1,1, 5.0f, 0, screenWidth * 0.55f, screenWidth * 0.75f});
+    obstacles.push_back({screenWidth * 0.55f, (float)screenHeight * 0.3f, 150, 40, 1,1,1, 5.0f, 0, screenWidth * 0.55f, screenWidth * 0.75f});
     obstacles.push_back({(float)screenWidth * 0.65f, screenHeight - 40.0f, 150, 40, 1,1,1, 0, -3.5f, screenHeight * 0.3f, screenHeight - 40.0f});
 
     applyColors();
