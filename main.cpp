@@ -50,16 +50,17 @@ const float PLAYER_SPEED = 7.0f;
 int screenWidth;
 int screenHeight;
 
-// --- NOVO: Variáveis para a cor do texto ---
+// Variáveis para armazenar a cor do texto dinamicamente
 float textColorR, textColorG, textColorB;
 
 // ----------------------------------------------------------------------
 // DECLARAÇÕES DE FUNÇÕES
 // ----------------------------------------------------------------------
+
 void specialKeysUp(int key, int x, int y);
 bool checkFanCollision();
 
-// ... Funções auxiliares ...
+
 void drawText(float x, float y, const char *text) {
     glRasterPos2f(x, y);
     while (*text) {
@@ -68,31 +69,40 @@ void drawText(float x, float y, const char *text) {
     }
 }
 
-// --- ALTERADO: A função agora também define a cor do texto ---
 void applyColors() {
-    if (colorScheme == 0) {
-        // Esquema Claro (Fundo Cinza Claro)
-        glClearColor(0.9f, 0.9f, 0.9f, 1.0f);
-        textColorR = 0.05f; textColorG = 0.05f; textColorB = 0.05f; // Texto escuro
-        player.r = 0.8f; player.g = 0.2f; player.b = 0.2f;
-        for (size_t i = 0; i < obstacles.size(); ++i) { obstacles[i].r = 0.2f; obstacles[i].g = 0.2f; obstacles[i].b = 0.8f; }
-        fan.r = 0.3f; fan.g = 0.3f; fan.b = 0.3f;
-    }
-    else if (colorScheme == 1) {
-        // Esquema Escuro (Fundo Cinza Escuro)
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        textColorR = 0.9f; textColorG = 0.9f; textColorB = 0.9f; // Texto claro
-        player.r = 0.1f; player.g = 0.9f; player.b = 0.1f;
-        for (size_t i = 0; i < obstacles.size(); ++i) { obstacles[i].r = 0.9f; obstacles[i].g = 0.1f; obstacles[i].b = 0.5f; }
-        fan.r = 0.8f; fan.g = 0.8f; fan.b = 0.8f;
-    }
-    else {
-        // Esquema Sépia (Fundo Creme)
-        glClearColor(0.9f, 0.85f, 0.7f, 1.0f);
-        textColorR = 0.2f; textColorG = 0.15f; textColorB = 0.1f; // Texto marrom escuro
-        player.r = 0.2f; player.g = 0.2f; player.b = 0.7f;
-        for (size_t i = 0; i < obstacles.size(); ++i) { obstacles[i].r = 0.5f; obstacles[i].g = 0.35f; obstacles[i].b = 0.05f; }
-        fan.r = 0.2f; fan.g = 0.0f; fan.b = 0.2f;
+    switch (colorScheme) {
+        case 0:
+            // Esquema Claro (Fundo Cinza Claro)
+            glClearColor(0.9f, 0.9f, 0.9f, 1.0f);
+            textColorR = 0.05f; textColorG = 0.05f; textColorB = 0.05f; // Texto escuro
+            player.r = 0.8f; player.g = 0.2f; player.b = 0.2f;
+            for (size_t i = 0; i < obstacles.size(); ++i) {
+                obstacles[i].r = 0.2f; obstacles[i].g = 0.2f; obstacles[i].b = 0.8f;
+            }
+            fan.r = 0.3f; fan.g = 0.3f; fan.b = 0.3f;
+            break;
+
+        case 1:
+            // Esquema Escuro (Fundo Cinza Escuro)
+            glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+            textColorR = 0.9f; textColorG = 0.9f; textColorB = 0.9f; // Texto claro
+            player.r = 0.1f; player.g = 0.9f; player.b = 0.1f;
+            for (size_t i = 0; i < obstacles.size(); ++i) {
+                obstacles[i].r = 0.9f; obstacles[i].g = 0.1f; obstacles[i].b = 0.5f;
+            }
+            fan.r = 0.8f; fan.g = 0.8f; fan.b = 0.8f;
+            break;
+
+        default:
+            // Esquema Sépia (Fundo Creme)
+            glClearColor(0.9f, 0.85f, 0.7f, 1.0f);
+            textColorR = 0.2f; textColorG = 0.15f; textColorB = 0.1f; // Texto marrom escuro
+            player.r = 0.2f; player.g = 0.2f; player.b = 0.7f;
+            for (size_t i = 0; i < obstacles.size(); ++i) {
+                obstacles[i].r = 0.5f; obstacles[i].g = 0.35f; obstacles[i].b = 0.05f;
+            }
+            fan.r = 0.2f; fan.g = 0.0f; fan.b = 0.2f;
+            break;
     }
 }
 
@@ -123,18 +133,29 @@ bool checkCollision() {
     return false;
 }
 
+
+// Função auxiliar que calcula o determinante para verificar o lado relativo de um ponto em relação a uma linha formada por dois outros pontos
 float sign(Point p1, Point p2, Point p3) {
+    // O resultado indica se p1 está à esquerda ou à direita da linha p2 -> p3
     return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
 }
 
+// Verifica se o ponto pt está dentro do triângulo formado pelos vértices v1, v2 e v3
 bool isPointInTriangle(Point pt, Point v1, Point v2, Point v3) {
     float d1, d2, d3;
     bool has_neg, has_pos;
+
+    // Calcula os sinais (ou áreas orientadas) em relação a cada lado do triângulo
     d1 = sign(pt, v1, v2);
     d2 = sign(pt, v2, v3);
     d3 = sign(pt, v3, v1);
+
+    // Verifica se os sinais são mistos (parte do ponto está fora)
     has_neg = (d1 < 0) || (d2 < 0) || (d3 < 0);
     has_pos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+
+    // Se o ponto estiver em lados diferentes para pelo menos uma aresta, está fora do triângulo
+    // Se todos os sinais forem positivos ou todos negativos, o ponto está dentro
     return !(has_neg && has_pos);
 }
 
@@ -235,7 +256,7 @@ void display() {
         glRectf(player.x, player.y, player.x + player.width, player.y + player.height);
     }
 
-    // --- ALTERADO: Usa as variáveis de cor de texto dinâmicas ---
+    //Usa as variáveis de cor de texto dinâmicas
     glColor3f(textColorR, textColorG, textColorB);
     char lifeText[20];
     sprintf(lifeText, "Vidas: %d", lives);
@@ -365,7 +386,7 @@ int main(int argc, char** argv) {
     screenWidth = glutGet(GLUT_SCREEN_WIDTH);
     screenHeight = glutGet(GLUT_SCREEN_HEIGHT);
     glutInitWindowSize(screenWidth, screenHeight);
-    glutCreateWindow("Desafio de Obstaculos v2 - CG 2025.1");
+    glutCreateWindow("Desafio de Obstaculos");
     glutFullScreen();
     init();
     glutDisplayFunc(display);
